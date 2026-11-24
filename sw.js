@@ -1,6 +1,6 @@
 // Service worker: guarda la app en el teléfono para que abra sin señal.
 // Para publicar una nueva versión, cambia el número de VERSION.
-const VERSION = 'terreno-v1';
+const VERSION = 'terreno-v5';
 const ARCHIVOS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
