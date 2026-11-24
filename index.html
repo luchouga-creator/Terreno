@@ -402,6 +402,12 @@ function formRegistro(r,nuevo){
   if(r.blob)h+=`<img class="big" src="${urlDe(r.blob)}" alt="" style="cursor:zoom-in"><div class="mut" style="text-align:center;margin-bottom:6px">🔍 Toca la foto para ampliarla</div>`;
   if(r.audio)h+=`<audio controls src="${urlDe(r.audio)}" style="width:100%;margin:4px 0 8px"></audio><div class="mut">Duración ${fmtDur(r.dur)} · ${fmtH(r.ts)}</div>`;
   if(r.blob&&t!=='voz')h+=`<div class="row" style="margin-top:6px"><button class="btn" id="av">🎙️ ${r.audio?'Regrabar audio':'Grabar audio de esta foto'}</button>${r.audio?'<button class="btn dan" id="qv">Quitar audio</button>':''}</div>`;
+  if(r.lat!=null)h+=`<div class="card" style="margin:8px 0;padding:10px"><div class="mut">📍 Ubicación GPS</div>
+    <div id="coords" style="font-weight:700;font-size:17px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;user-select:text;-webkit-user-select:text">${r.lat.toFixed(6)}, ${r.lng.toFixed(6)}</div>
+    ${r.acc!=null?`<div class="mut">Precisión ±${Math.round(r.acc)} m</div>`:''}
+    <div class="row" style="margin-top:8px"><button type="button" class="btn" id="gcopy">📋 Copiar</button>
+    <a class="btn" id="gmap" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${r.lat.toFixed(6)},${r.lng.toFixed(6)}" style="display:flex;align-items:center;justify-content:center;text-decoration:none;color:inherit">🗺️ Ver en mapa</a></div>
+    <div class="mut" style="margin-top:4px">«Ver en mapa» necesita internet.</div></div>`;
   if(t==='foto'||t==='voz')h+=`<label>Leyenda (opcional)</label><input class="in" id="f_tx" value="${esc(r.texto)}" placeholder="Qué se ve en la foto">`;
   if(t==='medida')h+=`
     <label>Qué mediste</label><input class="in" id="f_et" list="pl" value="${esc(r.etiqueta)}" placeholder="Ej.: Espesor de placa" autocomplete="off"><datalist id="pl">${plant.map(p=>`<option value="${esc(p)}">`).join('')}</datalist>
@@ -421,6 +427,11 @@ function formRegistro(r,nuevo){
   if(!nuevo)h+=`<div class="row">${r.blob?`<button class="btn" id="ann">✏️ ${r.orig?'Editar anotaciones':'Anotar foto'}</button>`:''}${r.orig?'<button class="btn" id="qa">Quitar anotaciones</button>':''}<button class="btn dan" id="del">Eliminar</button></div>`;
   const m=modal(h);
   const val=id=>m.$(id)?.value.trim()??'';
+  const gc=m.$('#gcopy');if(gc)gc.onclick=async()=>{
+    const tx=`${r.lat.toFixed(6)}, ${r.lng.toFixed(6)}`;
+    try{await navigator.clipboard.writeText(tx)}
+    catch(e){const a=document.createElement('textarea');a.value=tx;a.style.cssText='position:fixed;opacity:0';document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(_){}a.remove()}
+    toast('📋 Coordenadas copiadas')};
   const bigImg=m.$('img.big');if(bigImg)bigImg.onclick=()=>verFoto(r.blob,r.texto||titulo);
 
   if(t==='hallazgo'){
@@ -733,10 +744,11 @@ function descargar(b,n){const a=document.createElement('a');a.href=URL.createObj
 const slug=s=>String(s||'').normalize('NFC').replace(/[^\p{L}\p{N}]+/gu,'_').replace(/^_|_$/g,'');
 function exportarCSV(){
   const c=s=>{s=String(s??'');return /[";\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
-  const f=[['Visita','Sector','Elemento','Tipo','Descripción','Medido','Nominal','Diferencia','Unidad','Severidad','Fecha','Hora','Latitud','Longitud']];
-  [...S.regs].filter(r=>r.tipo!=='foto').sort((a,b)=>a.ts-b.ts).forEach(r=>{
+  const f=[['Visita','Sector','Elemento','Tipo','Descripción','Medido','Nominal','Diferencia','Unidad','Severidad','Fecha','Hora','Latitud','Longitud','Precisión (m)','Cotas']];
+  const co=n=>n==null?'':n.toFixed(6).replace('.',',');
+  [...S.regs].sort((a,b)=>a.ts-b.ts).forEach(r=>{
     const d=delta(r);
-    f.push([S.visita.nombre,r.sector,r.elemento,r.tipo,r.tipo==='medida'?r.etiqueta+(r.texto?' ('+r.texto+')':''):(r.texto||(r.tipo==='voz'?'Nota de voz ('+fmtDur(r.dur)+', audio en la app)':'')),r.valor||'',r.nominal||'',d?fmtN(d.d):'',r.unidad||'',r.severidad||'',fmtF(r.ts),fmtH(r.ts),r.lat??'',r.lng??'']);});
+    f.push([S.visita.nombre,r.sector,r.elemento,r.tipo,r.tipo==='medida'?r.etiqueta+(r.texto?' ('+r.texto+')':''):(r.texto||(r.tipo==='voz'?'Nota de voz ('+fmtDur(r.dur)+', audio en la app)':r.tipo==='foto'?'Foto':'')),r.valor||'',r.nominal||'',d?fmtN(d.d):'',r.unidad||'',r.severidad||'',fmtF(r.ts),fmtH(r.ts),co(r.lat),co(r.lng),r.acc!=null?Math.round(r.acc):'',cotasDe(r).join(' | ')]);});
   descargar(new Blob(['﻿'+f.map(r=>r.map(c).join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'}),`${slug(S.visita.nombre)}.csv`)}
 async function compartirFotos(){
   const fs=[...S.regs].filter(r=>r.blob).sort((a,b)=>a.ts-b.ts);if(!fs.length){toast('No hay fotos');return}
