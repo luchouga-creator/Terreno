@@ -83,12 +83,15 @@ details{margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:
 summary{cursor:pointer;font-size:14px}
 /* anotador */
 .annbar{display:flex;gap:6px;padding:8px;background:#1f2937;align-items:center;flex-wrap:wrap}
-.annbar button{border:0;border-radius:10px;background:#374151;color:#fff;padding:10px 12px;font-weight:700;min-height:44px}
+.annbar button{border:0;border-radius:10px;background:#374151;color:#fff;padding:8px 10px;font-size:14px;font-weight:700;min-height:42px}
 .annbar button.on{background:var(--ac);color:var(--acink)}
 .annbar .col{width:34px;height:34px;min-height:0;padding:0;border-radius:99px;border:3px solid #fff4}
 .annbar .col.on{border-color:#fff}
-.annbox{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:6px}
-.annbox canvas{max-width:100%;max-height:100%;touch-action:none;background:#000}
+.annbox{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:6px;position:relative;overflow:hidden;touch-action:none}
+.zbtns{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:8px;z-index:3}
+.zbtns button{width:46px;height:46px;border-radius:50%;border:0;background:#000b;color:#fff;font-size:24px;line-height:1;padding:0}
+.annbox canvas{max-width:100%;max-height:100%;touch-action:none;background:#000;transform-origin:center}
+.annbox img{transform-origin:center;user-select:none;-webkit-user-select:none}
 /* toast */
 #toast{position:fixed;left:50%;bottom:104px;transform:translate(-50%,20px);background:#111827;color:#fff;padding:10px 16px;border-radius:99px;font-size:15px;opacity:0;pointer-events:none;transition:.2s;z-index:80;max-width:90vw;text-align:center}
 #toast.on{opacity:1;transform:translate(-50%,0)}
@@ -327,6 +330,7 @@ function cardReg(r){
   else if(r.tipo==='voz'){t1=esc(r.texto||'Nota de voz');t2+=' · '+fmtDur(r.dur)}
   else{t1=`<span class="badge sev-${esc(r.severidad)}">${esc(r.severidad)}</span> ${esc(r.texto)}`}
   if(r.audio&&r.tipo!=='voz')t2+=' · 🎙️ '+fmtDur(r.dur);
+  const cs=cotasDe(r);if(cs.length)t2+=' · 📐 '+cs.join('; ');
   const th=r.thumb?`style="background-image:url(${urlDe(r.thumb)})"`:'';
   return `<div class="reg" data-a="reg" data-id="${esc(r.id)}"><div class="th" ${th}>${r.thumb?'':ICO[r.tipo]}</div><div class="tx"><div class="t1">${t1}</div><div class="t2">${ICO[r.tipo]} ${t2}</div></div>${r.blob&&!r.audio?`<button class="mic" data-a="vozreg" data-id="${esc(r.id)}" aria-label="Grabar audio de esta foto">🎙️</button>`:''}</div>`}
 function renderVisita(reset){
@@ -395,7 +399,7 @@ function formRegistro(r,nuevo){
   let pend=null,sev=r.severidad||'Media';
   const titulo={foto:'Foto',medida:'Medida',nota:'Nota',hallazgo:'Hallazgo',voz:'Nota de voz'}[t];
   let h=`<h2>${ICO[t]} ${nuevo?'Nueva ':''}${titulo.toLowerCase()}</h2>`;
-  if(r.blob)h+=`<img class="big" src="${urlDe(r.blob)}" alt="">`;
+  if(r.blob)h+=`<img class="big" src="${urlDe(r.blob)}" alt="" style="cursor:zoom-in"><div class="mut" style="text-align:center;margin-bottom:6px">🔍 Toca la foto para ampliarla</div>`;
   if(r.audio)h+=`<audio controls src="${urlDe(r.audio)}" style="width:100%;margin:4px 0 8px"></audio><div class="mut">Duración ${fmtDur(r.dur)} · ${fmtH(r.ts)}</div>`;
   if(r.blob&&t!=='voz')h+=`<div class="row" style="margin-top:6px"><button class="btn" id="av">🎙️ ${r.audio?'Regrabar audio':'Grabar audio de esta foto'}</button>${r.audio?'<button class="btn dan" id="qv">Quitar audio</button>':''}</div>`;
   if(t==='foto'||t==='voz')h+=`<label>Leyenda (opcional)</label><input class="in" id="f_tx" value="${esc(r.texto)}" placeholder="Qué se ve en la foto">`;
@@ -414,9 +418,10 @@ function formRegistro(r,nuevo){
     <label>Sector</label><input class="in" id="f_sec" list="dsec" value="${esc(r.sector)}"><datalist id="dsec">${secs.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
     <label>Elemento</label><input class="in" id="f_ele" list="dele" value="${esc(r.elemento)}"><datalist id="dele">${eles.map(s=>`<option value="${esc(s)}">`).join('')}</datalist></details>`;
   h+=`<div class="row"><button class="btn" id="c">Cancelar</button>${t==='medida'&&nuevo?'<button class="btn" id="go">Guardar y otra</button>':''}<button class="btn pri" id="g">Guardar</button></div>`;
-  if(!nuevo)h+=`<div class="row">${r.blob?'<button class="btn" id="ann">✏️ Anotar foto</button>':''}${r.orig?'<button class="btn" id="qa">Quitar anotaciones</button>':''}<button class="btn dan" id="del">Eliminar</button></div>`;
+  if(!nuevo)h+=`<div class="row">${r.blob?`<button class="btn" id="ann">✏️ ${r.orig?'Editar anotaciones':'Anotar foto'}</button>`:''}${r.orig?'<button class="btn" id="qa">Quitar anotaciones</button>':''}<button class="btn dan" id="del">Eliminar</button></div>`;
   const m=modal(h);
   const val=id=>m.$(id)?.value.trim()??'';
+  const bigImg=m.$('img.big');if(bigImg)bigImg.onclick=()=>verFoto(r.blob,r.texto||titulo);
 
   if(t==='hallazgo'){
     m.$('#sevs').addEventListener('click',e=>{const b=e.target.closest('[data-sv]');if(!b)return;sev=b.dataset.sv;m.querySelectorAll('[data-sv]').forEach(x=>x.classList.toggle('on',x===b))});
@@ -455,7 +460,7 @@ function formRegistro(r,nuevo){
   const qv=m.$('#qv');if(qv)qv.onclick=async()=>{if(!confirm('¿Quitar el audio de esta foto?'))return;delete r.audio;delete r.dur;await put('registros',r);await recargar();m.cerrar();renderVisita();toast('Audio quitado')};
   const an=m.$('#ann');if(an)an.onclick=async()=>{if(!await guardar())return;m.cerrar();renderVisita();anotar(r)};
   const qa=m.$('#qa');if(qa)qa.onclick=async()=>{
-    r.blob=r.orig;delete r.orig;r.thumb=await thumbDe(await canvasDe(r.blob));await put('registros',r);await recargar();m.cerrar();renderVisita();toast('Anotaciones quitadas')};
+    r.blob=r.orig;delete r.orig;delete r.anot;delete r.fondo;r.thumb=await thumbDe(await canvasDe(r.blob));await put('registros',r);await recargar();m.cerrar();renderVisita();toast('Anotaciones quitadas')};
 }
 async function canvasDe(b){const i=await cargarImg(b);const [w,h]=dimsImg(i);const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(i,0,0);return c}
 /* ---- notas de voz: sueltas (por sector) o ligadas a una foto (opts.reg) ---- */
@@ -496,72 +501,207 @@ function grabarVoz(opts={}){
   if(opts.reg)iniciar();else conCtx(iniciar)}
 function abrirReg(id){const r=S.regs.find(x=>x.id===id);if(r)formRegistro(r,false)}
 
-/* ---- anotador de fotos (lápiz, flecha, círculo, texto) ---- */
+/* ---- motor de zoom reutilizable: pellizco, arrastre, botones y rueda ---- */
+function motorZoom(box,el){
+  const z={s:1,x:0,y:0};let p0=null;
+  const aplicar=()=>{el.style.transform=`translate(${z.x}px,${z.y}px) scale(${z.s})`};
+  const base=()=>{const r=el.getBoundingClientRect();return {cx:r.left+r.width/2-z.x,cy:r.top+r.height/2-z.y,w:r.width/z.s,h:r.height/z.s}};
+  const ini=()=>({s:z.s,x:z.x,y:z.y,...base()});
+  const limitar=()=>{const b=base(),mx=b.w*z.s/2,my=b.h*z.s/2;z.x=Math.max(-mx,Math.min(mx,z.x));z.y=Math.max(-my,Math.min(my,z.y))};
+  const poner=(s2,fx,fy,dx,dy,i)=>{   // zoom manteniendo fijo el punto (fx,fy) de la pantalla
+    s2=Math.max(1,Math.min(8,s2));const k=s2/i.s;
+    z.x=(fx-i.cx)-k*((fx-i.cx)-i.x)+dx;z.y=(fy-i.cy)-k*((fy-i.cy)-i.y)+dy;z.s=s2;
+    if(s2<1.001){z.s=1;z.x=0;z.y=0}limitar();aplicar()};
+  box.addEventListener('wheel',e=>{e.preventDefault();poner(z.s*Math.exp(-Math.max(-300,Math.min(300,e.deltaY))*.0015),e.clientX,e.clientY,0,0,ini())},{passive:false});
+  return {z,
+    zoom(f,fx,fy){const b=box.getBoundingClientRect();poner(z.s*f,fx??b.left+b.width/2,fy??b.top+b.height/2,0,0,ini())},
+    ajustar(){z.s=1;z.x=0;z.y=0;aplicar()},
+    pan(dx,dy){if(z.s>1){z.x+=dx;z.y+=dy;limitar();aplicar()}},
+    pinchIni(a,b){p0={d:Math.hypot(a.x-b.x,a.y-b.y)||1,mx:(a.x+b.x)/2,my:(a.y+b.y)/2,i:ini()}},
+    pinchMov(a,b){if(!p0)return;const d=Math.hypot(a.x-b.x,a.y-b.y),mx=(a.x+b.x)/2,my=(a.y+b.y)/2;poner(p0.i.s*d/p0.d,p0.mx,p0.my,mx-p0.mx,my-p0.my,p0.i)},
+    pinchFin(){p0=null}}}
+const cotasDe=r=>(r.anot||[]).filter(o=>o.t==='cota'&&o.s).map(o=>o.s);
+
+/* ---- visor de foto a pantalla completa (zoom con pellizco, doble toque, botones) ---- */
+function verFoto(blob,leyenda){
+  const m=modal(`<div class="annbar"><b style="flex:1;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🔍 ${esc(leyenda||'Foto')}</b><button id="cx" class="on">Cerrar</button></div>
+    <div class="annbox" id="bx"><img id="im" alt="" draggable="false" src="${urlDe(blob)}" style="max-width:100%;max-height:100%;touch-action:none">
+      <div class="zbtns"><button id="zi" aria-label="Acercar">＋</button><button id="zo" aria-label="Alejar">−</button><button id="zf" aria-label="Ajustar">⤢</button></div></div>`,{full:true});
+  const box=m.$('#bx'),im=m.$('#im'),zm=motorZoom(box,im);
+  const ptrs=new Map();let pinch=false,movio=false,ini=null,ultTap=0;
+  box.addEventListener('pointerdown',e=>{if(e.target.closest('.zbtns'))return;e.preventDefault();
+    ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(ptrs.size===2){pinch=true;const [a,b]=[...ptrs.values()];zm.pinchIni(a,b)}
+    else if(ptrs.size===1){ini={x:e.clientX,y:e.clientY};movio=false;box.setPointerCapture(e.pointerId)}});
+  box.addEventListener('pointermove',e=>{const q=ptrs.get(e.pointerId);if(!q)return;
+    const dx=e.clientX-q.x,dy=e.clientY-q.y;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(ini&&Math.hypot(e.clientX-ini.x,e.clientY-ini.y)>8)movio=true;
+    if(pinch){if(ptrs.size>=2){const [a,b]=[...ptrs.values()];zm.pinchMov(a,b)}return}
+    zm.pan(dx,dy)});
+  const fin=e=>{if(!ptrs.has(e.pointerId))return;ptrs.delete(e.pointerId);
+    if(pinch){if(!ptrs.size){pinch=false;zm.pinchFin()}return}
+    if(!movio&&e.type==='pointerup'){const t=Date.now();
+      if(t-ultTap<320){zm.z.s>1.05?zm.ajustar():zm.zoom(2.5,e.clientX,e.clientY);ultTap=0}else ultTap=t}};
+  box.addEventListener('pointerup',fin);box.addEventListener('pointercancel',fin);
+  m.$('#zi').onclick=()=>zm.zoom(1.5);m.$('#zo').onclick=()=>zm.zoom(1/1.5);m.$('#zf').onclick=()=>zm.ajustar();
+  m.$('#cx').onclick=()=>m.cerrar()}
+
+/* ---- anotador: lápiz, flecha, cota (acotador), círculo, texto, mover, ver/zoom ---- */
 async function anotar(r){
-  const img=await cargarImg(r.blob);const [W,H]=dimsImg(img);
+  const baseBlob=r.fondo||(r.anot?r.orig:r.blob);   // imagen sin las anotaciones editables
+  const img=await cargarImg(baseBlob);const [W,H]=dimsImg(img);
   const m=modal(`
-    <div class="annbar"><button data-t="lapiz" class="on">✏️ Lápiz</button><button data-t="flecha">➚ Flecha</button><button data-t="circ">◯ Círculo</button><button data-t="texto">T Texto</button><button data-t="mover">✋ Mover</button>
+    <div class="annbar"><button data-t="lapiz" class="on">✏️ Lápiz</button><button data-t="flecha">➚ Flecha</button><button data-t="cota">📐 Cota</button><button data-t="circ">◯ Círculo</button><button data-t="texto">T Texto</button><button data-t="mover">✋ Mover</button><button data-t="ver">🔍 Ver</button>
       <span style="flex:1"></span>
       <button class="col on" data-c="#ff1744" style="background:#ff1744"></button><button class="col" data-c="#ffd600" style="background:#ffd600"></button><button class="col" data-c="#ffffff" style="background:#fff"></button></div>
-    <div class="annbox"><canvas id="cv" width="${W}" height="${H}"></canvas></div>
-    <div class="annbar"><button id="un">↶ Deshacer</button><button id="cl">Limpiar</button><span style="flex:1"></span><button id="ca">Cancelar</button><button id="sv" class="on">Guardar</button></div>`,{full:true});
-  const cv=m.$('#cv'),x=cv.getContext('2d');
-  let tool='lapiz',color='#ff1744',ops=[],act=null;const lw=Math.max(4,Math.round(W/190));
+    <div class="annbox" id="bx"><canvas id="cv" width="${W}" height="${H}"></canvas>
+      <div class="zbtns"><button id="zi" aria-label="Acercar">＋</button><button id="zo" aria-label="Alejar">−</button><button id="zf" aria-label="Ajustar">⤢</button></div></div>
+    <div class="annbar"><button id="un" aria-label="Deshacer" title="Deshacer">↶</button><button id="cl">Limpiar</button><button id="bo" aria-label="Borrar la anotación seleccionada" title="Borrar la seleccionada">🗑</button><span style="flex:1"></span><button id="ca">Cancelar</button><button id="sv" class="on">Guardar</button></div>`,{full:true});
+  const cv=m.$('#cv'),box=m.$('#bx'),x=cv.getContext('2d');
+  const zm=motorZoom(box,cv);
+  let tool='lapiz',color='#ff1744',ops=JSON.parse(JSON.stringify(r.anot||[])),act=null,sel=null,mv=null;
+  const lw=Math.max(4,Math.round(W/190));
+  const TOL=()=>Math.max(W/120,W/30/zm.z.s);            // zona de toque, constante en pantalla aunque haya zoom
+  const clon=o=>JSON.parse(JSON.stringify(o));
+  const cabeza=(t,g,L)=>{x.beginPath();x.moveTo(t[0],t[1]);x.lineTo(t[0]-L*Math.cos(g-.45),t[1]-L*Math.sin(g-.45));x.lineTo(t[0]-L*Math.cos(g+.45),t[1]-L*Math.sin(g+.45));x.closePath();x.fill()};
+  const etiqueta=o=>{   // posición del texto de una cota: sobre la línea y siempre legible
+    const ang=Math.atan2(o.b[1]-o.a[1],o.b[0]-o.a[0]);let nx=-Math.sin(ang),ny=Math.cos(ang);if(ny>0){nx=-nx;ny=-ny}
+    let ta=ang;if(ta>Math.PI/2)ta-=Math.PI;if(ta<-Math.PI/2)ta+=Math.PI;
+    const off=o.fs*.75+o.w*3;x.font=`bold ${o.fs}px sans-serif`;
+    return {px:(o.a[0]+o.b[0])/2+nx*off,py:(o.a[1]+o.b[1])/2+ny*off,ang:ta,w:o.s?x.measureText(o.s).width:0}};
   const dib=o=>{x.strokeStyle=o.c;x.fillStyle=o.c;x.lineWidth=o.w;x.lineCap='round';x.lineJoin='round';
     if(o.t==='lapiz'){x.beginPath();o.pts.forEach((p,i)=>i?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]));x.stroke()}
-    else if(o.t==='flecha'){const a=o.a,b=o.b;x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(b[0],b[1]);x.stroke();
-      const g=Math.atan2(b[1]-a[1],b[0]-a[0]),L=o.w*5;x.beginPath();x.moveTo(b[0],b[1]);
-      x.lineTo(b[0]-L*Math.cos(g-.45),b[1]-L*Math.sin(g-.45));x.lineTo(b[0]-L*Math.cos(g+.45),b[1]-L*Math.sin(g+.45));x.closePath();x.fill()}
+    else if(o.t==='flecha'){const a=o.a,b=o.b;x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(b[0],b[1]);x.stroke();cabeza(b,Math.atan2(b[1]-a[1],b[0]-a[0]),o.w*5)}
+    else if(o.t==='cota'){
+      const [ax,ay]=o.a,[bx,by]=o.b,ang=Math.atan2(by-ay,bx-ax),nx=-Math.sin(ang),ny=Math.cos(ang),T=o.w*4.5;
+      x.beginPath();x.moveTo(ax,ay);x.lineTo(bx,by);x.stroke();                      // línea de cota
+      x.beginPath();x.moveTo(ax-nx*T,ay-ny*T);x.lineTo(ax+nx*T,ay+ny*T);x.moveTo(bx-nx*T,by-ny*T);x.lineTo(bx+nx*T,by+ny*T);x.stroke(); // topes
+      cabeza(o.b,ang,o.w*4.5);cabeza(o.a,ang+Math.PI,o.w*4.5);                       // puntas hacia afuera
+      if(o.s){const e=etiqueta(o);x.save();x.translate(e.px,e.py);x.rotate(e.ang);x.textAlign='center';x.textBaseline='middle';
+        x.font=`bold ${o.fs}px sans-serif`;x.lineWidth=o.fs/6;x.strokeStyle='#000';x.strokeText(o.s,0,0);x.fillStyle=o.c;x.fillText(o.s,0,0);x.restore()}}
     else if(o.t==='circ'){x.beginPath();x.ellipse((o.a[0]+o.b[0])/2,(o.a[1]+o.b[1])/2,Math.abs(o.b[0]-o.a[0])/2||1,Math.abs(o.b[1]-o.a[1])/2||1,0,0,Math.PI*2);x.stroke()}
-    else if(o.t==='texto'){x.font=`bold ${o.fs}px sans-serif`;x.textBaseline='top';x.lineWidth=o.fs/6;x.strokeStyle='#000';x.strokeText(o.s,o.p[0],o.p[1]);x.fillText(o.s,o.p[0],o.p[1])}};
-  let sel=null,mv=null;const tol=W/30;
+    else if(o.t==='texto'){x.font=`bold ${o.fs}px sans-serif`;x.textBaseline='top';x.textAlign='left';x.lineWidth=o.fs/6;x.strokeStyle='#000';x.strokeText(o.s,o.p[0],o.p[1]);x.fillText(o.s,o.p[0],o.p[1])}};
   const caja=o=>{
     if(o.t==='texto'){x.font=`bold ${o.fs}px sans-serif`;return [o.p[0],o.p[1],o.p[0]+x.measureText(o.s).width,o.p[1]+o.fs]}
+    if(o.t==='cota'){const e=etiqueta(o),hw=Math.max(e.w/2,o.fs),xs=[o.a[0],o.b[0],e.px-hw,e.px+hw],ys=[o.a[1],o.b[1],e.py-o.fs,e.py+o.fs];return [Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)]}
     if(o.t==='circ'||o.t==='flecha')return [Math.min(o.a[0],o.b[0]),Math.min(o.a[1],o.b[1]),Math.max(o.a[0],o.b[0]),Math.max(o.a[1],o.b[1])];
     const xs=o.pts.map(q=>q[0]),ys=o.pts.map(q=>q[1]);return [Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)]};
   const dseg=(p,a,b)=>{const vx=b[0]-a[0],vy=b[1]-a[1],l=vx*vx+vy*vy||1;let t=((p[0]-a[0])*vx+(p[1]-a[1])*vy)/l;t=Math.max(0,Math.min(1,t));return Math.hypot(p[0]-a[0]-t*vx,p[1]-a[1]-t*vy)};
-  const golpea=(o,p)=>{
+  const golpea=(o,p)=>{const tol=TOL();
     if(o.t==='flecha')return dseg(p,o.a,o.b)<tol;
+    if(o.t==='cota'){if(dseg(p,o.a,o.b)<tol)return true;if(!o.s)return false;const e=etiqueta(o);return Math.hypot(p[0]-e.px,p[1]-e.py)<Math.max(o.fs,e.w/2+tol/2)}
     if(o.t==='lapiz')return o.pts.some((q,i)=>dseg(p,q,o.pts[i+1]||q)<tol);
     const c=caja(o);return p[0]>=c[0]-tol&&p[0]<=c[2]+tol&&p[1]>=c[1]-tol&&p[1]<=c[3]+tol};
-  const mover=(o,b,dx,dy)=>{
+  const mover=(o,b,dx,dy,modo)=>{
+    if(modo){o[modo]=[b[modo][0]+dx,b[modo][1]+dy];return}   // arrastrar solo una punta
     if(o.t==='texto')o.p=[b.p[0]+dx,b.p[1]+dy];
     else if(o.t==='lapiz')o.pts=b.pts.map(q=>[q[0]+dx,q[1]+dy]);
     else{o.a=[b.a[0]+dx,b.a[1]+dy];o.b=[b.b[0]+dx,b.b[1]+dy]}};
   const pintar=()=>{x.drawImage(img,0,0,W,H);ops.forEach(dib);if(act)dib(act);
-    if(sel){const c=caja(sel),g=tol/3;x.save();x.setLineDash([W/60,W/90]);x.lineWidth=Math.max(2,W/400);x.strokeStyle='#ffc400';x.strokeRect(c[0]-g,c[1]-g,c[2]-c[0]+2*g,c[3]-c[1]+2*g);x.restore()}};
+    if(sel){const c=caja(sel),g=TOL()/3;x.save();x.setLineDash([W/60,W/90]);x.lineWidth=Math.max(2,W/400);x.strokeStyle='#ffc400';x.strokeRect(c[0]-g,c[1]-g,c[2]-c[0]+2*g,c[3]-c[1]+2*g);
+      if(sel.t==='cota'||sel.t==='flecha'){x.setLineDash([]);x.fillStyle='#ffc400cc';x.strokeStyle='#000';x.lineWidth=Math.max(2,W/500);
+        [sel.a,sel.b].forEach(q=>{x.beginPath();x.arc(q[0],q[1],TOL()/2.2,0,Math.PI*2);x.fill();x.stroke()})}
+      x.restore()}};
   const pt=e=>{const b=cv.getBoundingClientRect();return [(e.clientX-b.left)*W/b.width,(e.clientY-b.top)*H/b.height]};
+  const dentro=e=>{const b=cv.getBoundingClientRect();return e.clientX>=b.left&&e.clientX<=b.right&&e.clientY>=b.top&&e.clientY<=b.bottom};
+
+  /* editor de texto / medida de cota: escribir, unidad, tamaño, eliminar */
+  const editarTexto=(o,p)=>{
+    const nuevo=!o,cota=!!o&&o.t==='cota';
+    const titulo=nuevo?'Texto sobre la foto':cota?(o.s?'Editar medida':'Escribe la medida'):'Editar texto';
+    const ult=aj().cotaU||'';
+    const t=modal(`<h2>${titulo}</h2>
+      <div style="display:flex;gap:8px"><input class="in" id="tx" value="${esc(o?o.s:'')}" placeholder="${cota?'Ej.: 1,20':'Ej.: fisura'}" autocomplete="off"${cota?' inputmode="decimal"':''}>${cota?'<button class="btn" id="kb" style="flex:none;min-width:64px">ABC</button>':''}</div>
+      ${cota?`<div class="chips" id="un2">${['mm','cm','m','in'].map(q=>`<button type="button" class="chip${q===ult?' on':''}" data-u="${q}">${q}</button>`).join('')}</div>`:''}
+      ${nuevo?'':'<div class="row" style="margin-top:10px"><button class="btn" id="mn">A− más chico</button><button class="btn" id="mp">A+ más grande</button></div>'}
+      <div class="row">${nuevo?'':'<button class="btn dan" id="el">Eliminar</button>'}<button class="btn" id="c">Cancelar</button><button class="btn pri" id="ok">${nuevo?'Poner':'Guardar'}</button></div>`);
+    const tx=t.$('#tx');tx.focus();tx.select();
+    tx.addEventListener('keydown',e=>{if(e.key==='Enter')t.$('#ok').click()});
+    t.$('#c').onclick=()=>t.cerrar();
+    if(cota){
+      t.$('#un2').addEventListener('click',e=>{const b=e.target.closest('[data-u]');if(!b)return;
+        const v=tx.value.trim().replace(/\s*(mm|cm|m|in)$/i,'');tx.value=(v?v+' ':'')+b.dataset.u;setAj({cotaU:b.dataset.u});
+        t.querySelectorAll('#un2 .chip').forEach(z=>z.classList.toggle('on',z===b));tx.focus()});
+      t.$('#kb').onclick=()=>{const dec=tx.inputMode==='decimal';tx.inputMode=dec?'text':'decimal';t.$('#kb').textContent=dec?'123':'ABC';tx.blur();tx.focus()}}
+    if(!nuevo){
+      t.$('#mn').onclick=()=>{o.fs=Math.max(Math.round(W/80),Math.round(o.fs/1.2));pintar()};
+      t.$('#mp').onclick=()=>{o.fs=Math.min(Math.round(W/5),Math.round(o.fs*1.2));pintar()};
+      t.$('#el').onclick=()=>{ops.splice(ops.indexOf(o),1);sel=null;t.cerrar();pintar()}}
+    t.$('#ok').onclick=()=>{const v=tx.value.trim();if(!v&&!cota){toast('Escribe un texto');return}
+      t.cerrar();
+      if(nuevo){const n={t:'texto',c:color,p,s:v,fs:Math.round(W/26)};ops.push(n);sel=n;tool='mover';
+        m.querySelectorAll('[data-t]').forEach(z=>z.classList.toggle('on',z.dataset.t==='mover'));toast('Arrastra para mover · toca para editar')}
+      else o.s=v;
+      pintar()}};
+
   pintar();
   m.addEventListener('click',e=>{
     const b=e.target.closest('button');if(!b)return;
     if(b.dataset.t){tool=b.dataset.t;m.querySelectorAll('[data-t]').forEach(z=>z.classList.toggle('on',z===b))}
-    if(b.dataset.c){color=b.dataset.c;m.querySelectorAll('[data-c]').forEach(z=>z.classList.toggle('on',z===b))}});
-  cv.addEventListener('pointerdown',e=>{e.preventDefault();const p=pt(e);
+    if(b.dataset.c){color=b.dataset.c;m.querySelectorAll('[data-c]').forEach(z=>z.classList.toggle('on',z===b));if(sel){sel.c=color;pintar()}}});
+  m.$('#zi').onclick=()=>zm.zoom(1.5);m.$('#zo').onclick=()=>zm.zoom(1/1.5);m.$('#zf').onclick=()=>zm.ajustar();
+
+  /* ---- gestos: 1 dedo = herramienta, 2 dedos = zoom y desplazamiento ---- */
+  const ptrs=new Map();let gesto=false,pan=null;
+  box.addEventListener('pointerdown',e=>{
+    if(e.target.closest('.zbtns'))return;
+    e.preventDefault();ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(ptrs.size===2){gesto=true;act=null;if(mv){mover(sel,mv.base,0,0,mv.modo);mv=null}pan=null;const [a,b]=[...ptrs.values()];zm.pinchIni(a,b);pintar();return}
+    if(ptrs.size>2||gesto)return;
+    box.setPointerCapture(e.pointerId);
+    if(tool==='ver'){pan={x:e.clientX,y:e.clientY};return}
+    if(!dentro(e))return;
+    const p=pt(e);
     if(tool==='mover'){
+      if(sel&&(sel.t==='cota'||sel.t==='flecha')){   // ¿tocó una punta de la anotación seleccionada?
+        const h=['a','b'].find(k=>Math.hypot(p[0]-sel[k][0],p[1]-sel[k][1])<TOL()*1.3);
+        if(h){mv={base:clon(sel),p0:p,modo:h,movido:false};pintar();return}}
       const o=[...ops].reverse().find(z=>golpea(z,p));
-      if(o){sel=o;mv={base:JSON.parse(JSON.stringify(o)),p0:p};cv.setPointerCapture(e.pointerId)}else sel=null;
+      if(o){sel=o;mv={base:clon(o),p0:p,movido:false}}else sel=null;
       pintar();return}
     sel=null;
-    if(tool==='texto'){
-      const t=modal(`<h2>Texto sobre la foto</h2><input class="in" id="tx" placeholder="Ej.: 1,20 m  ·  fisura" autocomplete="off"><div class="row"><button class="btn" id="c">Cancelar</button><button class="btn pri" id="ok">Poner</button></div>`);
-      t.$('#tx').focus();t.$('#c').onclick=()=>t.cerrar();
-      t.$('#ok').onclick=()=>{const s=t.$('#tx').value.trim();t.cerrar();
-        if(s){const o={t:'texto',c:color,p,s,fs:Math.round(W/26)};ops.push(o);
-          tool='mover';sel=o;m.querySelectorAll('[data-t]').forEach(z=>z.classList.toggle('on',z.dataset.t==='mover'));toast('Arrastra el texto para moverlo');pintar()}};
-      return}
-    cv.setPointerCapture(e.pointerId);act={t:tool,c:color,w:lw,pts:[p],a:p,b:p};pintar()});
-  cv.addEventListener('pointermove',e=>{
-    if(mv){const p=pt(e);mover(sel,mv.base,p[0]-mv.p0[0],p[1]-mv.p0[1]);pintar();return}
-    if(!act)return;const p=pt(e);if(act.t==='lapiz')act.pts.push(p);act.b=p;pintar()});
-  const fin=()=>{mv=null;if(!act)return;ops.push(act);act=null;pintar()};
-  cv.addEventListener('pointerup',fin);cv.addEventListener('pointercancel',fin);
+    if(tool==='texto'){editarTexto(null,p);return}
+    const base={t:tool,c:color,w:lw,pts:[p],a:p,b:p};
+    if(tool==='cota')base.fs=Math.round(W/32),base.s='';
+    act=base;pintar()});
+  box.addEventListener('pointermove',e=>{
+    if(!ptrs.has(e.pointerId))return;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(gesto){if(ptrs.size>=2){const [a,b]=[...ptrs.values()];zm.pinchMov(a,b)}return}
+    if(pan){zm.pan(e.clientX-pan.x,e.clientY-pan.y);pan={x:e.clientX,y:e.clientY};return}
+    const p=pt(e);
+    if(mv){const dx=p[0]-mv.p0[0],dy=p[1]-mv.p0[1];if(Math.hypot(dx,dy)>TOL()/2)mv.movido=true;if(mv.movido){mover(sel,mv.base,dx,dy,mv.modo);pintar()}return}
+    if(!act)return;if(act.t==='lapiz')act.pts.push(p);act.b=p;pintar()});
+  const fin=cancel=>{
+    if(mv){const tocar=!cancel&&!mv.movido&&sel&&(sel.t==='texto'||sel.t==='cota');mv=null;if(tocar)editarTexto(sel);return}
+    if(!act)return;const o=act;act=null;
+    if(cancel){pintar();return}
+    if(o.t==='lapiz'&&o.pts.length<2){pintar();return}
+    if(o.t!=='lapiz'&&Math.hypot(o.b[0]-o.a[0],o.b[1]-o.a[1])<TOL()/2){pintar();return}   // un toque sin arrastrar no crea nada
+    ops.push(o);
+    if(o.t==='cota'){sel=o;pintar();editarTexto(o);return}
+    pintar()};
+  const soltar=cancel=>e=>{
+    if(!ptrs.has(e.pointerId))return;ptrs.delete(e.pointerId);
+    if(gesto){if(!ptrs.size){gesto=false;zm.pinchFin()}return}
+    pan=null;fin(cancel)};
+  box.addEventListener('pointerup',soltar(false));box.addEventListener('pointercancel',soltar(true));
+
   m.$('#un').onclick=()=>{ops.pop();sel=null;pintar()};
   m.$('#cl').onclick=()=>{ops=[];sel=null;pintar()};
+  m.$('#bo').onclick=()=>{if(!sel){toast('Con ✋ Mover, toca la anotación que quieres borrar');return}ops.splice(ops.indexOf(sel),1);sel=null;pintar()};
   const volver=()=>{m.cerrar();recargar().then(()=>{renderVisita();const rr=S.regs.find(z=>z.id===r.id);if(rr)formRegistro(rr,false)})};
   m.$('#ca').onclick=volver;
   m.$('#sv').onclick=async()=>{
     sel=null;pintar();
-    if(ops.length){r.orig=r.orig||r.blob;r.blob=await aBlob(cv,.85);r.thumb=await thumbDe(cv);await put('registros',r)}
+    if(ops.length){
+      if(r.orig&&!r.anot&&!r.fondo)r.fondo=r.blob;      // anotaciones de versiones anteriores quedan como fondo
+      r.orig=r.orig||r.blob;
+      r.anot=JSON.parse(JSON.stringify(ops));
+      r.blob=await aBlob(cv,.85);r.thumb=await thumbDe(cv);await put('registros',r)}
+    else if(r.anot&&r.anot.length){                      // se borraron todas las anotaciones
+      const limpio=r.fondo||r.orig;
+      if(r.fondo)delete r.fondo;else delete r.orig;
+      delete r.anot;r.blob=limpio;r.thumb=await thumbDe(await canvasDe(limpio));await put('registros',r)}
     volver()};
 }
 
@@ -610,7 +750,7 @@ async function respaldo(ids){
   toast('Preparando respaldo…');
   const vs=(await getAll('visitas')).filter(v=>!ids||ids.includes(v.id));
   const out={app:'terreno',version:1,fecha:Date.now(),visitas:[]};
-  for(const v of vs){const rs=[];for(const r of await regsDe(v.id)){const o={...r};for(const k of ['blob','thumb','orig','audio'])if(o[k])o[k]=await aDataURL(o[k]);rs.push(o)}out.visitas.push({visita:v,registros:rs})}
+  for(const v of vs){const rs=[];for(const r of await regsDe(v.id)){const o={...r};for(const k of ['blob','thumb','orig','audio','fondo'])if(o[k])o[k]=await aDataURL(o[k]);rs.push(o)}out.visitas.push({visita:v,registros:rs})}
   const nombre=ids&&vs.length===1?slug(vs[0].nombre):'todas';
   const b=new Blob([JSON.stringify(out)],{type:'application/json'});
   const f=new File([b],`terreno-respaldo-${nombre}-${stamp(Date.now())}.json`,{type:'application/json'});
@@ -620,7 +760,7 @@ $('#imp').addEventListener('change',async e=>{
   const f=e.target.files[0];e.target.value='';if(!f)return;
   try{const j=JSON.parse(await f.text());if(j.app!=='terreno')throw 0;let n=0;
     for(const {visita,registros} of j.visitas){await put('visitas',visita);
-      for(const r of registros){for(const k of ['blob','thumb','orig','audio'])if(r[k])r[k]=await (await fetch(r[k])).blob();await put('registros',r);n++}}
+      for(const r of registros){for(const k of ['blob','thumb','orig','audio','fondo'])if(r[k])r[k]=await (await fetch(r[k])).blob();await put('registros',r);n++}}
     toast(`Importadas ${j.visitas.length} visita(s)`);renderHome()}
   catch(err){toast('Ese archivo no es un respaldo válido')}});
 
@@ -652,7 +792,7 @@ function renderInforme(){
       const vz=re.filter(r=>r.tipo==='voz');
       if(vz.length)h+=tabla(['Notas de voz (el audio queda en la app)','Duración','Hora'],vz.map(r=>`<tr><td>${esc(r.texto||'Sin leyenda')}</td><td>${fmtDur(r.dur)}</td><td>${fmtH(r.ts)}</td></tr>`));
       const fo=re.filter(r=>r.blob);
-      if(fo.length)h+=`<div class="grid">${fo.map(r=>`<figure class="fig"><img src="${urlDe(r.blob)}" alt=""><figcaption>${r.tipo==='hallazgo'?'⚠ '+esc(r.severidad)+' · ':''}${fmtH(r.ts)}${r.texto?' · '+esc(r.texto):''}${r.audio?' · 🎙 audio '+fmtDur(r.dur)+' (en la app)':''}${r.lat!=null?` · ${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}`:''}</figcaption></figure>`).join('')}</div>`;
+      if(fo.length)h+=`<div class="grid">${fo.map(r=>`<figure class="fig"><img src="${urlDe(r.blob)}" alt=""><figcaption>${r.tipo==='hallazgo'?'⚠ '+esc(r.severidad)+' · ':''}${fmtH(r.ts)}${r.texto?' · '+esc(r.texto):''}${cotasDe(r).length?' · 📐 Cotas: '+cotasDe(r).map(esc).join('; '):''}${r.audio?' · 🎙 audio '+fmtDur(r.dur)+' (en la app)':''}${r.lat!=null?` · ${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}`:''}</figcaption></figure>`).join('')}</div>`;
     }}
   if(!rs.length)h+=`<p class="mut">Esta visita aún no tiene registros.</p>`;
   h+='</div>';
