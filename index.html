@@ -92,6 +92,25 @@ summary{cursor:pointer;font-size:14px}
 .zbtns button{width:46px;height:46px;border-radius:50%;border:0;background:#000b;color:#fff;font-size:24px;line-height:1;padding:0}
 .annbox canvas{max-width:100%;max-height:100%;touch-action:none;background:#000;transform-origin:center}
 .annbox img{transform-origin:center;user-select:none;-webkit-user-select:none}
+/* planos */
+.plw{position:relative;flex:none;transform-origin:center;touch-action:none;background:#fff;line-height:0}
+.plw img{width:100%;height:100%;display:block;pointer-events:none}
+.pin{position:absolute;width:0;height:0;transform:scale(calc(1/var(--s,1)));z-index:2}
+.pin b{position:absolute;left:-15px;top:-40px;width:30px;height:30px;border-radius:50%;background:#d32f2f;color:#fff;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font:700 14px/1 system-ui;box-shadow:0 1px 3px #0008}
+.pin::after{content:'';position:absolute;left:-6px;top:-10px;border:6px solid transparent;border-top:10px solid #d32f2f}
+.pin.act b{background:#1565c0}.pin.act::after{border-top-color:#1565c0}
+.pin.cal b{background:#2e7d32}.pin.cal::after{border-top-color:#2e7d32}
+.cruz{position:absolute;left:50%;top:50%;width:40px;height:40px;margin:-20px 0 0 -20px;pointer-events:none;z-index:3}
+.cruz::before,.cruz::after{content:'';position:absolute;background:#ff1744;box-shadow:0 0 0 1px #fff}
+.cruz::before{left:19px;top:0;width:2px;height:40px}.cruz::after{top:19px;left:0;height:2px;width:40px}
+.plw svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.pos{position:absolute;width:0;height:0;transform:scale(calc(1/var(--s,1)));z-index:3}
+.pos i{position:absolute;left:-11px;top:-11px;width:22px;height:22px;border-radius:50%;background:#1e88e5;border:3px solid #fff;box-shadow:0 0 0 2px #1e88e5aa}
+.pos i::after{content:'';position:absolute;left:3px;top:-14px;border:5px solid transparent;border-bottom:10px solid #1e88e5}
+.estado{background:#0d47a1;color:#fff;font-size:14px;padding:8px 12px}
+.pillplano{display:block;width:100%;text-align:left;border:0;background:#fff;border-radius:var(--r);padding:10px 14px;margin-bottom:10px;font-size:15px;font-weight:600;box-shadow:0 1px 2px #0001}
+.pillplano small{display:block;font-weight:500;color:var(--mut);font-size:13px}
+.doc img.plano{max-width:100%;border:1px solid #ccc}
 /* toast */
 #toast{position:fixed;left:50%;bottom:104px;transform:translate(-50%,20px);background:#111827;color:#fff;padding:10px 16px;border-radius:99px;font-size:15px;opacity:0;pointer-events:none;transition:.2s;z-index:80;max-width:90vw;text-align:center}
 #toast.on{opacity:1;transform:translate(-50%,0)}
@@ -125,6 +144,7 @@ summary{cursor:pointer;font-size:14px}
 <div id="toast"></div>
 <input type="file" id="cam" accept="image/*" capture="environment" hidden>
 <input type="file" id="imp" accept=".json,application/json" hidden>
+<input type="file" id="impPlano" accept=".pdf,application/pdf,image/*" hidden>
 
 <script>
 'use strict';
@@ -154,8 +174,8 @@ const PLANT0=['Largo','Ancho','Alto','Espesor','Diámetro','Distancia a borde','
 
 /* ============ base de datos (IndexedDB) ============ */
 let db;
-function abrirDB(){return new Promise((res,rej)=>{const r=indexedDB.open('terreno',1);
-  r.onupgradeneeded=()=>{const d=r.result;d.createObjectStore('visitas',{keyPath:'id'});d.createObjectStore('registros',{keyPath:'id'}).createIndex('visitaId','visitaId')};
+function abrirDB(){return new Promise((res,rej)=>{const r=indexedDB.open('terreno',3);
+  r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('visitas'))d.createObjectStore('visitas',{keyPath:'id'});if(!d.objectStoreNames.contains('registros'))d.createObjectStore('registros',{keyPath:'id'}).createIndex('visitaId','visitaId');if(!d.objectStoreNames.contains('planos'))d.createObjectStore('planos',{keyPath:'id'});if(!d.objectStoreNames.contains('sensores'))d.createObjectStore('sensores',{keyPath:'id'})};
   r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 const rq=r=>new Promise((res,rej)=>{r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
 const st=n=>db.transaction(n).objectStore(n);
@@ -164,7 +184,7 @@ const del=(n,id)=>new Promise((res,rej)=>{const t=db.transaction(n,'readwrite');
 const getAll=n=>rq(st(n).getAll());
 const regsDe=id=>rq(st('registros').index('visitaId').getAll(id));
 const contar=id=>rq(st('registros').index('visitaId').count(id));
-async function borrarVisita(id){const rs=await regsDe(id);return new Promise((res,rej)=>{const t=db.transaction(['visitas','registros'],'readwrite');t.objectStore('visitas').delete(id);rs.forEach(r=>t.objectStore('registros').delete(r.id));t.oncomplete=()=>res();t.onerror=t.onabort=()=>rej(t.error)})}
+async function borrarVisita(id){const rs=await regsDe(id);for(const x of await getAll('sensores'))if(x.visitaId===id)await del('sensores',x.id);return new Promise((res,rej)=>{const t=db.transaction(['visitas','registros'],'readwrite');t.objectStore('visitas').delete(id);rs.forEach(r=>t.objectStore('registros').delete(r.id));t.oncomplete=()=>res();t.onerror=t.onabort=()=>rej(t.error)})}
 
 /* ============ estado ============ */
 const S={nivel:0,visita:null,regs:[],ctx:{sector:'',elemento:''},filtro:'todo',pos:null,urls:[],alFoto:null,instalar:null,offline:false};
@@ -270,6 +290,7 @@ function menuHome(){
   const m=modal(`<div class="menu">
     ${S.instalar?'<button data-m="inst">📲 Instalar app en el teléfono</button>':''}
     <button data-m="resp">💾 Respaldo de todas las visitas</button>
+    <button data-m="pln">🗺️ Planos (biblioteca)</button>
     <button data-m="imp">📂 Importar respaldo</button>
     <button data-m="perf">👤 Datos del responsable</button>
     <button data-m="x">Cerrar</button></div>`,{fuera:true});
@@ -277,6 +298,7 @@ function menuHome(){
     if(k==='inst'){S.instalar.prompt();S.instalar=null}
     if(k==='resp')respaldo();
     if(k==='imp')$('#imp').click();
+    if(k==='pln')bibliotecaPlanos();
     if(k==='perf')formPerfil()})}
 function formPerfil(){
   const a=aj();const m=modal(`<h2>Datos del responsable</h2>
@@ -333,6 +355,11 @@ function cardReg(r){
   const cs=cotasDe(r);if(cs.length)t2+=' · 📐 '+cs.join('; ');
   const th=r.thumb?`style="background-image:url(${urlDe(r.thumb)})"`:'';
   return `<div class="reg" data-a="reg" data-id="${esc(r.id)}"><div class="th" ${th}>${r.thumb?'':ICO[r.tipo]}</div><div class="tx"><div class="t1">${t1}</div><div class="t2">${ICO[r.tipo]} ${t2}</div></div>${r.blob&&!r.audio?`<button class="mic" data-a="vozreg" data-id="${esc(r.id)}" aria-label="Grabar audio de esta foto">🎙️</button>`:''}</div>`}
+function pillPlano(){
+  const v=S.visita,ps=(v.pines||[]).filter(x=>x.planoId===v.planoId);
+  if(!v.planoId)return `<button class="pillplano" data-a="plano">🗺️ Plano de la visita <small>Opcional · toca para agregar o elegir un plano</small></button>`;
+  const falta=S.ctx.sector&&!ps.some(x=>x.sector===S.ctx.sector&&x.elemento===S.ctx.elemento);
+  return `<button class="pillplano" data-a="plano">🗺️ Plano · ${ps.length} ubicación${ps.length===1?'':'es'} marcada${ps.length===1?'':'s'}<small>${falta?'⚠ El sector/elemento actual aún no está ubicado — toca para marcarlo':'Toca para ver el plano'}</small></button>`}
 function renderVisita(reset){
   const v=S.visita;const y=reset?0:scrollY;liberarUrls();
   const c=S.ctx;const lista=filtrar();
@@ -346,6 +373,7 @@ function renderVisita(reset){
     <div class="ctx${c.sector?'':' falta'}" data-a="ctx"><span class="cambia">cambiar ›</span>
       <small>SECTOR</small><b>${esc(c.sector||'Toca para elegir')}</b>
       <small>ELEMENTO</small><b style="margin:0">${esc(c.elemento||'—')}</b></div>
+    ${pillPlano()}
     <div class="seg">
       <button data-a="filtro" data-f="todo" class="${S.filtro==='todo'?'on':''}">Todo (${S.regs.length})</button>
       <button data-a="filtro" data-f="sector" class="${S.filtro==='sector'?'on':''}">Sector (${nS})</button>
@@ -515,7 +543,7 @@ function abrirReg(id){const r=S.regs.find(x=>x.id===id);if(r)formRegistro(r,fals
 /* ---- motor de zoom reutilizable: pellizco, arrastre, botones y rueda ---- */
 function motorZoom(box,el){
   const z={s:1,x:0,y:0};let p0=null;
-  const aplicar=()=>{el.style.transform=`translate(${z.x}px,${z.y}px) scale(${z.s})`};
+  const aplicar=()=>{el.style.transform=`translate(${z.x}px,${z.y}px) scale(${z.s})`;el.style.setProperty('--s',z.s)};
   const base=()=>{const r=el.getBoundingClientRect();return {cx:r.left+r.width/2-z.x,cy:r.top+r.height/2-z.y,w:r.width/z.s,h:r.height/z.s}};
   const ini=()=>({s:z.s,x:z.x,y:z.y,...base()});
   const limitar=()=>{const b=base(),mx=b.w*z.s/2,my=b.h*z.s/2;z.x=Math.max(-mx,Math.min(mx,z.x));z.y=Math.max(-my,Math.min(my,z.y))};
@@ -530,7 +558,8 @@ function motorZoom(box,el){
     pan(dx,dy){if(z.s>1){z.x+=dx;z.y+=dy;limitar();aplicar()}},
     pinchIni(a,b){p0={d:Math.hypot(a.x-b.x,a.y-b.y)||1,mx:(a.x+b.x)/2,my:(a.y+b.y)/2,i:ini()}},
     pinchMov(a,b){if(!p0)return;const d=Math.hypot(a.x-b.x,a.y-b.y),mx=(a.x+b.x)/2,my=(a.y+b.y)/2;poner(p0.i.s*d/p0.d,p0.mx,p0.my,mx-p0.mx,my-p0.my,p0.i)},
-    pinchFin(){p0=null}}}
+    pinchFin(){p0=null},
+    irA(ox,oy){z.x=-z.s*ox;z.y=-z.s*oy;limitar();aplicar()}}}
 const cotasDe=r=>(r.anot||[]).filter(o=>o.t==='cota'&&o.s).map(o=>o.s);
 
 /* ---- visor de foto a pantalla completa (zoom con pellizco, doble toque, botones) ---- */
@@ -720,6 +749,7 @@ async function anotar(r){
 function menuVisita(){
   const rot=aj().rotular!==false;
   const m=modal(`<div class="menu">
+    <button data-m="plan">🗺️ Plano y ubicación del sector</button>
     <button data-m="inf">📄 Informe / PDF</button>
     <button data-m="csv">📊 Exportar medidas y hallazgos (CSV para Excel)</button>
     <button data-m="fot">📤 Compartir fotos (con rótulo)</button>
@@ -730,6 +760,7 @@ function menuVisita(){
     <button data-m="del" class="dan">🗑️ Eliminar visita</button>
     <button data-m="x">Cerrar</button></div>`,{fuera:true});
   m.addEventListener('click',async e=>{const k=e.target.closest('[data-m]')?.dataset.m;if(!k)return;m.cerrar();
+    if(k==='plan')planoVisita();
     if(k==='inf')renderInforme();
     if(k==='csv')exportarCSV();
     if(k==='fot')compartirFotos();
@@ -761,8 +792,10 @@ const aDataURL=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.resu
 async function respaldo(ids){
   toast('Preparando respaldo…');
   const vs=(await getAll('visitas')).filter(v=>!ids||ids.includes(v.id));
-  const out={app:'terreno',version:1,fecha:Date.now(),visitas:[]};
+  const out={app:'terreno',version:2,fecha:Date.now(),visitas:[],planos:[]};
   for(const v of vs){const rs=[];for(const r of await regsDe(v.id)){const o={...r};for(const k of ['blob','thumb','orig','audio','fondo'])if(o[k])o[k]=await aDataURL(o[k]);rs.push(o)}out.visitas.push({visita:v,registros:rs})}
+  const pids=new Set();vs.forEach(v=>{if(v.planoId)pids.add(v.planoId);(v.pines||[]).forEach(x=>pids.add(x.planoId))});
+  for(const id of pids){const p=await rq(st('planos').get(id));if(p){const o={...p};for(const k of ['blob','thumb'])if(o[k])o[k]=await aDataURL(o[k]);out.planos.push(o)}}
   const nombre=ids&&vs.length===1?slug(vs[0].nombre):'todas';
   const b=new Blob([JSON.stringify(out)],{type:'application/json'});
   const f=new File([b],`terreno-respaldo-${nombre}-${stamp(Date.now())}.json`,{type:'application/json'});
@@ -771,10 +804,322 @@ async function respaldo(ids){
 $('#imp').addEventListener('change',async e=>{
   const f=e.target.files[0];e.target.value='';if(!f)return;
   try{const j=JSON.parse(await f.text());if(j.app!=='terreno')throw 0;let n=0;
+    for(const p of (j.planos||[])){for(const k of ['blob','thumb'])if(p[k])p[k]=await (await fetch(p[k])).blob();await put('planos',p)}
     for(const {visita,registros} of j.visitas){await put('visitas',visita);
       for(const r of registros){for(const k of ['blob','thumb','orig','audio','fondo'])if(r[k])r[k]=await (await fetch(r[k])).blob();await put('registros',r);n++}}
     toast(`Importadas ${j.visitas.length} visita(s)`);renderHome()}
   catch(err){toast('Ese archivo no es un respaldo válido')}});
+
+/* ============ planos y pines (opcional: antes o después de la visita) ============ */
+const MAXPLANO=3600;
+let pdfjs=null;
+async function cargarPdfjs(){
+  if(pdfjs)return pdfjs;
+  const lib=await import('./lib/pdf.min.mjs');
+  lib.GlobalWorkerOptions.workerSrc=new URL('./lib/pdf.worker.min.mjs',location.href).href;
+  pdfjs=lib;return lib}
+function pedirPagina(n){return new Promise(res=>{
+  const m=modal(`<h2>El PDF tiene ${n} páginas</h2><label>¿Qué página es el plano?</label>
+    <input class="in" id="pg" type="number" inputmode="numeric" min="1" max="${n}" value="1">
+    <div class="row"><button class="btn" id="c">Cancelar</button><button class="btn pri" id="ok">Usar</button></div>`);
+  m.$('#c').onclick=()=>{m.cerrar();res(0)};
+  m.$('#ok').onclick=()=>{const k=parseInt(m.$('#pg').value,10);if(!(k>=1&&k<=n)){toast('Número de página no válido');return}m.cerrar();res(k)}})}
+async function planoDeArchivo(f){
+  let c;
+  if(/pdf/i.test(f.type)||/\.pdf$/i.test(f.name)){
+    const lib=await cargarPdfjs();
+    const doc=await lib.getDocument({data:new Uint8Array(await f.arrayBuffer())}).promise;
+    let n=1;if(doc.numPages>1){n=await pedirPagina(doc.numPages);if(!n){doc.destroy&&doc.destroy();return null}}
+    const pg=await doc.getPage(n);const v1=pg.getViewport({scale:1});
+    const vp=pg.getViewport({scale:Math.min(MAXPLANO/Math.max(v1.width,v1.height),6)});
+    c=document.createElement('canvas');c.width=Math.round(vp.width);c.height=Math.round(vp.height);
+    const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);
+    await pg.render({canvasContext:x,viewport:vp}).promise;
+    doc.destroy&&doc.destroy();
+  }else{
+    const img=await cargarImg(f);const [w,h]=dimsImg(img);const k=Math.min(1,MAXPLANO/Math.max(w,h));
+    c=document.createElement('canvas');c.width=Math.round(w*k);c.height=Math.round(h*k);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height)}
+  return {blob:await aBlob(c,.85),thumb:await thumbDe(c),w:c.width,h:c.height}}
+let alPlano=null;
+const pedirPlano=cb=>{alPlano=cb;$('#impPlano').click()};
+$('#impPlano').addEventListener('change',async e=>{
+  const f=e.target.files[0];e.target.value='';const cb=alPlano;alPlano=null;if(!f)return;
+  toast('Procesando plano…');
+  try{const r=await planoDeArchivo(f);if(!r)return;
+    const p={id:uid(),nombre:f.name.replace(/\.[^.]+$/,''),ts:Date.now(),mpp:null,...r};
+    await put('planos',p);toast('Plano agregado');if(cb)cb(p)}
+  catch(err){console.error(err);toast('No se pudo leer ese plano. Prueba con otra página o con una imagen')}});
+
+async function bibliotecaPlanos(elegir){
+  const ps=(await getAll('planos')).sort((a,b)=>b.ts-a.ts);
+  const m=modal(`<h2>${elegir?'Elegir plano':'Planos'}</h2>
+    ${ps.length?ps.map(p=>`<div class="reg" data-p="${esc(p.id)}"><div class="th" style="background-image:url(${urlDe(p.thumb)})"></div><div class="tx"><div class="t1">${esc(p.nombre)}</div><div class="t2">${p.mpp?'Con escala':'Sin escala'}</div></div>${elegir?'':`<button class="mic" data-del="${esc(p.id)}" aria-label="Eliminar plano">🗑</button>`}</div>`).join(''):'<div class="vacio">Aún no hay planos.<br>Agrega el PDF o una imagen del nivel.</div>'}
+    <button class="btn pri blk" id="np" style="margin-top:10px">➕ Agregar plano (PDF o imagen)</button>
+    <button class="btn blk" id="c" style="margin-top:8px">Cerrar</button>`);
+  m.$('#c').onclick=()=>m.cerrar();
+  m.$('#np').onclick=()=>pedirPlano(p=>{m.cerrar();if(elegir)elegir(p);else bibliotecaPlanos()});
+  m.addEventListener('click',async e=>{
+    const d=e.target.closest('[data-del]');
+    if(d){const p=ps.find(x=>x.id===d.dataset.del);
+      if(p&&confirm(`¿Eliminar el plano «${p.nombre}»? Las visitas que lo usan conservarán sus ubicaciones, pero sin el dibujo.`)){await del('planos',p.id);m.cerrar();bibliotecaPlanos()}return}
+    const r=e.target.closest('[data-p]');if(!r)return;const p=ps.find(x=>x.id===r.dataset.p);if(!p)return;
+    m.cerrar();if(elegir)elegir(p);else verPlano(p)})}
+
+const distPlano=(p,a,b)=>p.mpp?Math.hypot((a.x-b.x)*p.w,(a.y-b.y)*p.h)*p.mpp:null;
+const fmtM=d=>d>=1000?fmtN(d/1000,2)+' km':fmtN(d,d<10?1:0)+' m';
+async function planoVisita(){
+  const v=S.visita;const p=v.planoId?await rq(st('planos').get(v.planoId)):null;
+  if(p){verPlano(p);return}
+  bibliotecaPlanos(async pl=>{v.planoId=pl.id;await put('visitas',v);if(S.visita===v)renderVisita();verPlano(pl)})}
+function cambiarPlano(){
+  bibliotecaPlanos(async pl=>{const v=S.visita;v.planoId=pl.id;await put('visitas',v);renderVisita();verPlano(pl)})}
+
+/* ---- recorrido estimado con sensores (PDR): pasos + giroscopio; se corrige con pines ---- */
+const radDe=d=>d*Math.PI/180;
+const angDif=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
+// rumbo (rad, horario, 0 = "arriba" del plano tras sumar el desfase) hacia donde apunta el teléfono: sirve de pie, en la mano o inclinado
+function rumboDe(a,b,g){
+  const A=radDe(a||0),B=radDe(b||0),G=radDe(g||0),sA=Math.sin(A),cA=Math.cos(A),sB=Math.sin(B),cB=Math.cos(B),sG=Math.sin(G),cG=Math.cos(G);
+  const x=(-cA*sG-sA*sB*cG)-sA*cB,y=(-sA*sG+cA*sB*cG)+cA*cB;
+  return Math.hypot(x,y)<.25?null:Math.atan2(x,y)}
+function Pasos(){this.s=9.8;this.base=9.8;this.arriba=false;this.ult=-1e9}
+Pasos.prototype.push=function(t,ax,ay,az){
+  const m=Math.hypot(ax,ay,az);this.s+=.35*(m-this.s);this.base+=.02*(this.s-this.base);
+  const d=this.s-this.base;
+  if(!this.arriba&&d>1.0&&t-this.ult>280){this.arriba=true;this.ult=t;return true}
+  if(this.arriba&&d<.2)this.arriba=false;
+  return false};
+
+function verPlano(p){
+  const enVisita=!!S.visita;const v=S.visita;
+  const u=URL.createObjectURL(p.blob);
+  const m=modal(`<div class="annbar"><b id="tt" style="flex:1;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></b>${enVisita?'<button id="sw">🔄</button>':''}<button id="cx" class="on">Cerrar</button></div>
+    <div class="annbox" id="bx"><div class="plw" id="wr"><img id="im" alt="" draggable="false" src="${u}"><svg id="rt" viewBox="0 0 1 1" preserveAspectRatio="none"><g id="rts"></g><polyline id="rv" fill="none" stroke="#1e88e5" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg><div id="mk"></div><div class="pos" id="ps" hidden><i></i></div></div>
+      <div class="cruz" id="cz" hidden></div>
+      <div class="zbtns"><button id="zi" aria-label="Acercar">＋</button><button id="zo" aria-label="Alejar">−</button><button id="zf" aria-label="Ajustar">⤢</button></div></div>
+    <div class="estado" id="st" hidden></div>
+    <div class="annbar" id="ab"></div>`,{full:true});
+  const box=m.$('#bx'),wr=m.$('#wr'),zm=motorZoom(box,wr);
+  let cal=null;                                  // calibración de escala {paso,a}
+  let tr=null;                                   // recorrido {fase:'inicio'|'dir'|'on', pos, off, L, steps, path, anc, ruta, log, sigue}
+  let hdg=null,wl=null,timer=null;
+  const pines=()=>enVisita?(v.pines||[]).filter(x=>x.planoId===p.id).sort((a,b)=>a.ts-b.ts):[];
+  const rutas=()=>enVisita?(v.rutas||[]).filter(r=>r.planoId===p.id):[];
+  const ajustar=()=>{const k=Math.min((box.clientWidth-12)/p.w,(box.clientHeight-12)/p.h);wr.style.width=Math.round(p.w*k)+'px';wr.style.height=Math.round(p.h*k)+'px'};
+  const centro=()=>{const b=box.getBoundingClientRect(),r=wr.getBoundingClientRect();return {x:(b.left+b.width/2-r.left)/r.width,y:(b.top+b.height/2-r.top)/r.height}};
+  const dentro=c=>c.x>=0&&c.x<=1&&c.y>=0&&c.y<=1;
+  const ctxTxt=()=>S.ctx&&S.ctx.sector?S.ctx.sector+(S.ctx.elemento?' › '+S.ctx.elemento:''):'';
+  const rumboPl=(a,b)=>Math.atan2((b.x-a.x)*p.w,-(b.y-a.y)*p.h);
+  const distM=(a,b)=>Math.hypot((b.x-a.x)*p.w,(b.y-a.y)*p.h)*p.mpp;
+  const r5=n=>Math.round(n*1e5)/1e5;
+
+  function dibujar(){
+    m.$('#tt').textContent='🗺️ '+p.nombre+(p.mpp?'':' · sin escala');
+    m.$('#mk').innerHTML=pines().map((q,i)=>{
+      const act=S.ctx&&q.sector===S.ctx.sector&&q.elemento===S.ctx.elemento;
+      return `<div class="pin${act?' act':''}" data-pin="${esc(q.id)}" style="left:${q.x*100}%;top:${q.y*100}%"><b>${i+1}</b></div>`}).join('')
+      +(cal&&cal.a?`<div class="pin cal" style="left:${cal.a.x*100}%;top:${cal.a.y*100}%"><b>A</b></div>`:'');
+    m.$('#rts').innerHTML=rutas().filter(r=>!tr||r!==tr.ruta).map(r=>`<polyline points="${r.pts.map(q=>q[0]+','+q[1]).join(' ')}" fill="none" stroke="#5c6bc0" stroke-opacity=".65" stroke-width="3" stroke-dasharray="8 6" vector-effect="non-scaling-stroke"/>`).join('');
+    m.$('#cz').hidden=!(enVisita||cal);
+    barra()}
+  function barra(){
+    const ab=m.$('#ab'),st=m.$('#st');st.hidden=!tr;
+    const marcaTxt=`📍 Marcar aquí${ctxTxt()?': '+esc(ctxTxt()):''}`;
+    if(cal){ab.innerHTML=`<button id="main" class="on" style="flex:1">${cal.paso===1?'Fijar punto A':'Fijar punto B'}</button><button id="nc">Cancelar</button>`}
+    else if(tr&&tr.fase==='inicio'){st.textContent='1/2 · Centra la cruz roja en tu posición actual del plano.';ab.innerHTML=`<button id="main" class="on" style="flex:1">Fijar partida (estoy aquí)</button><button id="nc">Cancelar</button>`}
+    else if(tr&&tr.fase==='dir'){st.textContent='2/2 · Sostén el teléfono como al caminar, mira hacia adelante y centra la cruz en un punto del plano hacia donde estás mirando (unos metros más allá).';ab.innerHTML=`<button id="main" class="on" style="flex:1">Fijar dirección (miro hacia allá)</button><button id="nc">Cancelar</button>`}
+    else if(tr){st.textContent=`🚶 ${tr.steps} pasos · ≈ ${fmtM(tr.path)} · paso ${fmtN(tr.L)} m`;
+      ab.innerHTML=`<button id="main" class="on" style="flex:1 1 100%">${marcaTxt}</button><button id="est">🎯 Estoy aquí</button><button id="rum">🧭 Rumbo</button><button id="sg" class="${tr.sigue?'on':''}">📌</button><button id="cfg">⚙</button><button id="stop">⏹ Parar</button>`}
+    else ab.innerHTML=(enVisita?`<button id="main" class="on" style="flex:1">${marcaTxt}</button>`:'')+`<button id="esc"${enVisita?'':' class="on" style="flex:1"'}>📏 Escala</button>`+(enVisita?'<button id="rec">🚶 Recorrido</button><button id="cfg">⚙</button>':'');
+    const g=(i,f)=>{const e=m.$('#'+i);if(e)e.onclick=f};
+    g('main',()=>{if(cal)fijarCal();else if(tr&&tr.fase==='inicio')fijarPartida();else if(tr&&tr.fase==='dir')fijarDir();else marcar()});
+    g('esc',()=>{cal={paso:1};dibujar();toast('Centra la cruz en un punto de distancia conocida')});
+    g('nc',()=>{if(cal){cal=null;dibujar()}else if(tr&&tr.ruta){tr.fase='on';dibujar()}else detener()});
+    g('rec',iniciar);g('est',estoyAqui);g('stop',detener);g('cfg',ajustes);
+    g('rum',()=>{tr.fase='dir';tr.dirDesde=tr.pos;dibujar()});
+    g('sg',()=>{tr.sigue=!tr.sigue;barra()})}
+  async function marcar(){
+    const c=centro();if(!dentro(c)){toast('Centra la cruz sobre el plano');return}
+    if(!S.ctx.sector){toast('Primero elige el sector');abrirCtx(dibujar);return}
+    if(m.ocupado)return;m.ocupado=true;
+    try{v.pines=v.pines||[];
+      let q=v.pines.find(x=>x.planoId===p.id&&x.sector===S.ctx.sector&&x.elemento===S.ctx.elemento);
+      if(q){q.x=c.x;q.y=c.y;q.mov=Date.now();toast('Ubicación actualizada')}
+      else{v.pines.push({id:uid(),planoId:p.id,x:c.x,y:c.y,sector:S.ctx.sector,elemento:S.ctx.elemento,ts:Date.now()});toast('Ubicación marcada')}
+      if(tr&&tr.fase==='on')corregir(c,'pin');
+      await put('visitas',v);dibujar();renderVisita()}
+    finally{m.ocupado=false}}
+  function fijarCal(){
+    const c=centro();if(!dentro(c)){toast('Centra la cruz sobre el plano');return}
+    if(cal.paso===1){cal={paso:2,a:c};dibujar();toast('Ahora centra el punto B');return}
+    const a=cal.a,dpx=Math.hypot((c.x-a.x)*p.w,(c.y-a.y)*p.h);
+    if(dpx<8){toast('Los puntos están muy cerca; elige otros');return}
+    const mm=modal(`<h2>Distancia real A → B</h2><label>Metros entre los dos puntos</label>
+      <input class="in" id="d" inputmode="decimal" placeholder="Ej.: 120" autocomplete="off">
+      <div class="row"><button class="btn" id="c">Cancelar</button><button class="btn pri" id="ok">Guardar escala</button></div>`);
+    mm.$('#c').onclick=()=>mm.cerrar();
+    mm.$('#ok').onclick=async()=>{const d=num(mm.$('#d').value);if(!(d>0)){toast('Escribe una distancia mayor que 0');return}
+      p.mpp=d/dpx;await put('planos',p);cal=null;mm.cerrar();dibujar();toast('Escala guardada')}}
+  function infoPin(q){
+    const ps=pines(),i=ps.indexOf(q),ant=i>0?ps[i-1]:null,d=ant?distPlano(p,q,ant):null;
+    const mm=modal(`<h2>📍 ${i+1} · ${esc(q.sector)}${q.elemento?' › '+esc(q.elemento):''}</h2>
+      <div class="mut">${fmtF(q.ts)} ${fmtH(q.ts)}${d!=null?` · ${fmtM(d)} desde el punto ${i}`:''}</div>
+      <div class="row"><button class="btn dan" id="e">Eliminar</button><button class="btn" id="c">Cerrar</button></div>`,{fuera:true});
+    mm.$('#c').onclick=()=>mm.cerrar();
+    mm.$('#e').onclick=async()=>{v.pines=v.pines.filter(x=>x.id!==q.id);await put('visitas',v);mm.cerrar();dibujar();renderVisita()}}
+
+  /* ---- sensores ---- */
+  const logEv=(t,k,...a)=>{if(tr&&tr.log)tr.log.ev.push([Math.round(t),k,...a])};
+  const onOri=e=>{if(e.alpha==null)return;const h=rumboDe(e.alpha,e.beta,e.gamma);if(h==null)return;
+    hdg=hdg==null?h:hdg+.4*angDif(h,hdg);
+    if(tr&&tr.log)tr.log.ori.push([Math.round(performance.now()),+e.alpha.toFixed(1),+(e.beta||0).toFixed(1),+(e.gamma||0).toFixed(1)])};
+  const onAbs=e=>{if(tr&&tr.log&&e.alpha!=null)tr.log.abs.push([Math.round(performance.now()),+e.alpha.toFixed(1),+(e.beta||0).toFixed(1),+(e.gamma||0).toFixed(1)])};
+  const det=new Pasos();
+  const onMot=e=>{const a=e.accelerationIncludingGravity;if(!a||a.x==null)return;const t=performance.now();
+    if(tr&&tr.log)tr.log.acc.push([Math.round(t),+a.x.toFixed(2),+a.y.toFixed(2),+a.z.toFixed(2)]);
+    if(tr&&tr.fase==='on'&&det.push(t,a.x,a.y,a.z))paso(t)};
+  async function pedirLuz(){try{wl=await navigator.wakeLock?.request('screen')}catch(e){}}
+  const visi=()=>{if(!document.hidden&&tr)pedirLuz()};
+  async function arrancarSensores(){
+    if(typeof DeviceMotionEvent==='undefined'&&typeof DeviceOrientationEvent==='undefined'){toast('Este teléfono no entrega sensores de movimiento');return false}
+    try{for(const C of [DeviceMotionEvent,DeviceOrientationEvent])if(C&&typeof C.requestPermission==='function'){if(await C.requestPermission()!=='granted'){toast('Permiso de sensores denegado');return false}}}catch(e){}
+    addEventListener('deviceorientation',onOri);addEventListener('deviceorientationabsolute',onAbs);addEventListener('devicemotion',onMot);
+    document.addEventListener('visibilitychange',visi);pedirLuz();return true}
+  function pararSensores(){
+    removeEventListener('deviceorientation',onOri);removeEventListener('deviceorientationabsolute',onAbs);removeEventListener('devicemotion',onMot);
+    document.removeEventListener('visibilitychange',visi);try{wl&&wl.release()}catch(e){}wl=null;clearInterval(timer);timer=null}
+  async function guardarLog(){
+    if(!tr||!tr.log||!tr.ruta)return;
+    await put('sensores',{id:tr.ruta.id,visitaId:v.id,planoId:p.id,ts:tr.ruta.ts,data:new Blob([JSON.stringify(tr.log)],{type:'application/json'})})}
+  async function iniciar(){
+    if(!p.mpp){toast('Primero calibra la escala del plano (📏 Escala)');return}
+    if(!(await arrancarSensores()))return;
+    hdg=null;det.arriba=false;
+    tr={fase:'inicio',L:aj().paso||.7,steps:0,path:0,pos:null,off:0,anc:null,ruta:null,sigue:true,
+      log:aj().crudos===false?null:{app:'terreno-sensores',version:1,meta:{mpp:p.mpp,w:p.w,h:p.h,paso0:aj().paso||.7,ua:navigator.userAgent,t0:Date.now()},acc:[],ori:[],abs:[],ev:[]}};
+    dibujar()}
+  function fijarPartida(){
+    const c=centro();if(!dentro(c)){toast('Centra la cruz sobre el plano');return}
+    tr.dirDesde=c;tr.pos={x:c.x,y:c.y};tr.fase='dir';dibujar()}
+  function fijarDir(){
+    const c=centro();if(!dentro(c)){toast('Centra la cruz sobre el plano');return}
+    const a=tr.dirDesde;if(Math.hypot((c.x-a.x)*p.w,(c.y-a.y)*p.h)<8){toast('Elige un punto más lejos, hacia donde miras');return}
+    if(hdg==null){toast('Aún no llegan datos de orientación: mueve un poco el teléfono');return}
+    tr.off=rumboPl(a,c)-hdg;tr.dirDesde=null;
+    if(!tr.ruta){
+      tr.ruta={id:uid(),planoId:p.id,ts:Date.now(),pts:[[r5(tr.pos.x),r5(tr.pos.y),0,2]]};
+      v.rutas=v.rutas||[];v.rutas.push(tr.ruta);tr.anc={x:tr.pos.x,y:tr.pos.y,steps:0,path:0};
+      tr.t0=Date.now();timer=setInterval(()=>guardarLog().catch(()=>{}),60000)}
+    logEv(performance.now(),'dir',r5(tr.pos.x),r5(tr.pos.y),+tr.off.toFixed(3));
+    tr.fase='on';put('visitas',v);dibujar();pintarPos();toast('Recorrido en curso')}
+  function pintarPos(){
+    const ps=m.$('#ps');if(!tr||!tr.pos){ps.hidden=true;return}
+    ps.hidden=false;ps.style.left=tr.pos.x*100+'%';ps.style.top=tr.pos.y*100+'%';
+    ps.firstChild.style.transform=`rotate(${(hdg!=null?hdg+tr.off:0)}rad)`;
+    m.$('#rv').setAttribute('points',tr.ruta?tr.ruta.pts.map(q=>q[0]+','+q[1]).join(' '):'')}
+  function paso(t){
+    if(hdg==null)return;
+    const th=hdg+tr.off,Lp=tr.L/p.mpp;
+    tr.pos={x:tr.pos.x+Math.sin(th)*Lp/p.w,y:tr.pos.y-Math.cos(th)*Lp/p.h};
+    tr.steps++;tr.path+=tr.L;tr.ruta.pts.push([r5(tr.pos.x),r5(tr.pos.y),Math.round((Date.now()-tr.t0)/1000),0]);
+    logEv(t,'paso',r5(tr.pos.x),r5(tr.pos.y));
+    pintarPos();m.$('#st').textContent=`🚶 ${tr.steps} pasos · ≈ ${fmtM(tr.path)} · paso ${fmtN(tr.L)} m`;
+    if(tr.sigue&&zm.z.s>1.05)zm.irA((tr.pos.x-.5)*wr.offsetWidth,(tr.pos.y-.5)*wr.offsetHeight);
+    if(tr.steps%10===0){put('visitas',v).catch(()=>{})}}
+  // el pin / "estoy aquí" corrige posición, largo de paso y rumbo
+  function corregir(c,por){
+    const a=tr.anc,dE=distM(a,tr.pos),dC=distM(a,c),rec=tr.path-a.path>0?dE/(tr.path-a.path):0;
+    let msg='Posición corregida';
+    if(rec>.8&&dE>=8&&dC>=8){
+      tr.L=Math.max(.45,Math.min(1.1,tr.L*Math.pow(Math.max(.8,Math.min(1.25,dC/dE)),.5)));setAj({paso:+tr.L.toFixed(3)});
+      tr.off+=.5*Math.max(-.7,Math.min(.7,angDif(rumboPl(a,c),rumboPl(a,tr.pos))));
+      msg+=` · paso ${fmtN(tr.L)} m`}
+    tr.pos={x:c.x,y:c.y};tr.anc={x:c.x,y:c.y,steps:tr.steps,path:tr.path};
+    tr.ruta.pts.push([r5(c.x),r5(c.y),Math.round((Date.now()-tr.t0)/1000),1]);
+    logEv(performance.now(),'corr',por,r5(c.x),r5(c.y),+tr.off.toFixed(3),+tr.L.toFixed(3));
+    pintarPos();toast(msg)}
+  async function estoyAqui(){
+    const c=centro();if(!dentro(c)){toast('Centra la cruz sobre el plano');return}
+    corregir(c,'aqui');await put('visitas',v);barra()}
+  async function detener(){
+    if(!tr)return;const t=tr;
+    if(t.ruta){t.ruta.fin=Date.now();t.ruta.pasos=t.steps;t.ruta.dist=Math.round(t.path);await put('visitas',v);await guardarLog().catch(()=>{})}
+    else if(!t.ruta)v.rutas=(v.rutas||[]);
+    pararSensores();tr=null;m.$('#rv').setAttribute('points','');m.$('#ps').hidden=true;dibujar();
+    if(t.ruta)toast(`Recorrido guardado (${t.steps} pasos)`)}
+  function ajustes(){
+    const mm=modal(`<h2>Recorrido con sensores</h2>
+      <label>Largo de paso (metros)</label><input class="in" id="lp" inputmode="decimal" value="${fmtN(tr?tr.L:(aj().paso||.7),2)}">
+      <label style="display:flex;gap:8px;align-items:center;font-size:15px;color:var(--ink);font-weight:500"><input type="checkbox" id="cr" ${aj().crudos===false?'':'checked'} style="width:22px;height:22px"> Guardar datos de sensores (para analizar y mejorar el recorrido)</label>
+      <button class="btn blk" id="sh" style="margin-top:12px">📤 Compartir datos de sensores del último recorrido</button>
+      <button class="btn dan blk" id="bo" style="margin-top:8px">🗑 Borrar recorridos de este plano</button>
+      <div class="row"><button class="btn" id="c">Cancelar</button><button class="btn pri" id="ok">Guardar</button></div>`);
+    mm.$('#c').onclick=()=>mm.cerrar();
+    mm.$('#ok').onclick=()=>{const l=num(mm.$('#lp').value);if(!(l>=.3&&l<=1.5)){toast('El largo de paso debe estar entre 0,3 y 1,5 m');return}
+      setAj({paso:l,crudos:mm.$('#cr').checked});if(tr)tr.L=l;mm.cerrar();barra();toast('Guardado')};
+    mm.$('#sh').onclick=async()=>{
+      const l=(await getAll('sensores')).filter(x=>x.visitaId===v.id).sort((a,b)=>b.ts-a.ts)[0];
+      if(!l){toast('Aún no hay datos de sensores en esta visita');return}
+      const f=new File([l.data],`terreno-sensores-${slug(v.nombre)}-${stamp(l.ts)}.json`,{type:'application/json'});
+      mm.cerrar();
+      if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:'Datos de sensores'});return}catch(e){if(e.name==='AbortError')return}}
+      descargar(f,f.name)};
+    mm.$('#bo').onclick=async()=>{if(tr){toast('Detén el recorrido primero');return}
+      if(!rutas().length){toast('No hay recorridos');return}
+      if(confirm('¿Borrar los recorridos de este plano en esta visita? Los pines se conservan.')){v.rutas=(v.rutas||[]).filter(r=>r.planoId!==p.id);await put('visitas',v);mm.cerrar();dibujar()}}}
+
+  /* gestos: pellizco, arrastre, doble toque; un toque sobre un pin abre su ficha */
+  const ptrs=new Map();let pinch=false,movio=false,ini=null,ultTap=0;
+  box.addEventListener('pointerdown',e=>{if(e.target.closest('.zbtns'))return;e.preventDefault();
+    ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(ptrs.size===2){pinch=true;const [a,b]=[...ptrs.values()];zm.pinchIni(a,b)}
+    else if(ptrs.size===1){ini={x:e.clientX,y:e.clientY};movio=false;box.setPointerCapture(e.pointerId)}});
+  box.addEventListener('pointermove',e=>{const q=ptrs.get(e.pointerId);if(!q)return;
+    const dx=e.clientX-q.x,dy=e.clientY-q.y;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(ini&&Math.hypot(e.clientX-ini.x,e.clientY-ini.y)>8){movio=true;if(tr&&tr.sigue){tr.sigue=false;barra()}}
+    if(pinch){if(ptrs.size>=2){const [a,b]=[...ptrs.values()];zm.pinchMov(a,b)}return}
+    zm.pan(dx,dy)});
+  const fin=e=>{if(!ptrs.has(e.pointerId))return;ptrs.delete(e.pointerId);
+    if(pinch){if(!ptrs.size){pinch=false;zm.pinchFin()}return}
+    if(!movio&&e.type==='pointerup'){
+      const el=document.elementsFromPoint(e.clientX,e.clientY).map(x=>x.closest('[data-pin]')).find(Boolean);
+      if(el){const q=pines().find(x=>x.id===el.dataset.pin);if(q){infoPin(q);ultTap=0;return}}
+      const t=Date.now();
+      if(t-ultTap<320){zm.z.s>1.05?zm.ajustar():zm.zoom(2.5,e.clientX,e.clientY);ultTap=0}else ultTap=t}};
+  box.addEventListener('pointerup',fin);box.addEventListener('pointercancel',fin);
+  m.$('#zi').onclick=()=>zm.zoom(1.5);m.$('#zo').onclick=()=>zm.zoom(1/1.5);m.$('#zf').onclick=()=>zm.ajustar();
+  m.$('#cx').onclick=()=>m.cerrar();
+  const sw=m.$('#sw');if(sw)sw.onclick=()=>{m.cerrar();cambiarPlano()};
+  // cerrar (botón o Atrás de Android) guarda el recorrido y libera sensores
+  const rem0=m.remove.bind(m);
+  m.remove=()=>{removeEventListener('resize',ajustar);URL.revokeObjectURL(u);
+    if(tr){const t=tr;if(t.ruta){t.ruta.fin=Date.now();t.ruta.pasos=t.steps;t.ruta.dist=Math.round(t.path);put('visitas',v).catch(()=>{});guardarLog().catch(()=>{});toast(`Recorrido guardado (${t.steps} pasos)`)}pararSensores();tr=null}
+    rem0()};
+  ajustar();dibujar();addEventListener('resize',ajustar)}
+
+async function bloquePlanos(v){
+  const ids=[...new Set((v.pines||[]).map(x=>x.planoId))];let out='';
+  for(const id of ids){
+    const p=await rq(st('planos').get(id));if(!p)continue;
+    const ps=v.pines.filter(x=>x.planoId===id).sort((a,b)=>a.ts-b.ts);
+    const img=await cargarImg(p.blob);const k=Math.min(1,1800/Math.max(p.w,p.h));
+    const c=document.createElement('canvas');c.width=Math.round(p.w*k);c.height=Math.round(p.h*k);
+    const x=c.getContext('2d');x.drawImage(img,0,0,c.width,c.height);
+    const rutas=(v.rutas||[]).filter(q=>q.planoId===id&&q.pts.length>1);
+    rutas.forEach(q=>{x.strokeStyle='#1e88e5';x.lineWidth=Math.max(3,c.width/450);x.lineJoin='round';x.beginPath();q.pts.forEach((t,i)=>i?x.lineTo(t[0]*c.width,t[1]*c.height):x.moveTo(t[0]*c.width,t[1]*c.height));x.stroke()});
+    const r=Math.max(13,Math.round(c.width/75));
+    ps.forEach((q,i)=>{const px=q.x*c.width,py=q.y*c.height,cy=py-r*1.5;
+      x.fillStyle='#d32f2f';x.strokeStyle='#fff';x.lineWidth=Math.max(2,r/6);
+      x.beginPath();x.moveTo(px,py);x.lineTo(px-r*.7,cy+r*.6);x.lineTo(px+r*.7,cy+r*.6);x.closePath();x.fill();
+      x.beginPath();x.arc(px,cy,r,0,7);x.fill();x.stroke();
+      x.fillStyle='#fff';x.font='bold '+Math.round(r*1.1)+'px sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(String(i+1),px,cy+1)});
+    const b=await aBlob(c,.85);
+    out+=`<h2>Ubicación en plano: ${esc(p.nombre)}</h2><img class="plano" src="${urlDe(b)}" alt="">
+      <table><tr><th>N.º</th><th>Sector › Elemento</th><th>Hora</th>${p.mpp?'<th>Desde el anterior</th>':''}</tr>${ps.map((q,i)=>`<tr><td>${i+1}</td><td>${esc(q.sector)}${q.elemento?' › '+esc(q.elemento):''}</td><td>${fmtH(q.ts)}</td>${p.mpp?`<td>${i?fmtM(distPlano(p,q,ps[i-1])):'—'}</td>`:''}</tr>`).join('')}</table>
+      ${(v.rutas||[]).some(q=>q.planoId===id&&q.pts.length>1)?'<p class="mut">Línea azul: recorrido estimado con sensores del teléfono (aproximado, corregido con los pines).</p>':''}
+      ${p.mpp?'':'<p class="mut">Plano sin escala calibrada: no se calculan distancias.</p>'}`}
+  return out}
 
 /* ============ informe ============ */
 function renderInforme(){
@@ -788,6 +1133,7 @@ function renderInforme(){
     <tr><td>Responsable</td><td>${esc(v.responsable||a.responsable||'—')}${a.empresa?' · '+esc(a.empresa):''}</td></tr>
     <tr><td>Fecha</td><td>${fmtF(v.fecha)}</td></tr>
     <tr><td>Registros</td><td>${rs.filter(r=>r.tipo==='foto'||r.blob).length} fotos · ${rs.filter(r=>r.tipo==='medida').length} medidas · ${hall.length} hallazgos · ${rs.filter(r=>r.tipo==='nota').length} notas · ${rs.filter(r=>r.tipo==='voz').length} notas de voz</td></tr></table>`;
+  h+='<div id="plinf"></div>';
   if(hall.length)h+=`<h2>Resumen de hallazgos</h2>`+tabla(['Sev.','Sector › Elemento','Descripción'],[...hall].sort((x,y)=>SEV.indexOf(y.severidad)-SEV.indexOf(x.severidad)).map(r=>`<tr><td>${esc(r.severidad)}</td><td>${esc(r.sector)}${r.elemento?' › '+esc(r.elemento):''}</td><td>${esc(r.texto)}</td></tr>`));
   for(const s of sectores){
     h+=`<h2>${esc(s)}</h2>`;
@@ -809,7 +1155,8 @@ function renderInforme(){
   if(!rs.length)h+=`<p class="mut">Esta visita aún no tiene registros.</p>`;
   h+='</div>';
   app().innerHTML=`<div class="bar no-print"><button class="ib" data-a="volver" aria-label="Volver">←</button><h1>Informe</h1><button class="btn pri" data-a="imprimir" style="min-height:40px;padding:8px 14px">Guardar PDF</button></div><div class="wrap">${h}</div>`;
-  scrollTo(0,0)}
+  scrollTo(0,0);
+  if((v.pines||[]).length)bloquePlanos(v).then(x=>{const d=$('#plinf');if(d)d.innerHTML=x}).catch(e=>console.error(e))}
 
 /* ============ eventos ============ */
 const ACC={
@@ -819,6 +1166,7 @@ const ACC={
   ctx:()=>abrirCtx(),foto:pedirFoto,medida:nuevaMedida,nota:nuevaNota,voz:()=>grabarVoz(),vozreg:t=>{const r=S.regs.find(x=>x.id===t.dataset.id);if(r)grabarVoz({reg:r})},hallazgo:nuevoHallazgo,
   filtro:t=>{S.filtro=t.dataset.f;renderVisita()},
   reg:t=>abrirReg(t.dataset.id),menuVisita,
+  plano:()=>planoVisita(),
   imprimir:()=>{try{window.print()}catch(e){toast('Usa el menú del navegador → Imprimir')}}};
 document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(t&&ACC[t.dataset.a])ACC[t.dataset.a](t,e)});
 
